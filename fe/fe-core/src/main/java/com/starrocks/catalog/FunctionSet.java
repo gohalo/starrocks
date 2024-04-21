@@ -215,6 +215,7 @@ public class FunctionSet {
     public static final String JSON_QUERY = "json_query";
     public static final String JSON_EXISTS = "json_exists";
     public static final String JSON_EACH = "json_each";
+    public static final String GET_JSON_BOOL = "get_json_bool";
     public static final String GET_JSON_DOUBLE = "get_json_double";
     public static final String GET_JSON_INT = "get_json_int";
     public static final String GET_JSON_STRING = "get_json_string";
@@ -277,6 +278,7 @@ public class FunctionSet {
     public static final String DISTINCT_PC = "distinct_pc";
     public static final String DISTINCT_PCSA = "distinct_pcsa";
     public static final String HISTOGRAM = "histogram";
+    public static final String FLAT_JSON_META = "flat_json_meta";
 
     // Bitmap functions:
     public static final String BITMAP_AND = "bitmap_and";
@@ -495,6 +497,7 @@ public class FunctionSet {
     public static final String UNNEST = "unnest";
 
     public static final String CONNECTION_ID = "connection_id";
+    public static final String SESSION_ID = "session_id";
 
     public static final String CATALOG = "catalog";
 
@@ -700,6 +703,7 @@ public class FunctionSet {
 
     public static final Set<String> INFORMATION_FUNCTIONS = ImmutableSet.<String>builder()
             .add(CONNECTION_ID)
+            .add(SESSION_ID)
             .add(CATALOG)
             .add(DATABASE)
             .add(SCHEMA)
@@ -1150,6 +1154,9 @@ public class FunctionSet {
                 Type.VARCHAR, Type.VARCHAR, true, false, false));
         addBuiltin(AggregateFunction.createBuiltin(DICT_MERGE, Lists.newArrayList(Type.ARRAY_VARCHAR),
                 Type.VARCHAR, Type.VARCHAR, true, false, false));
+        // flat json meta
+        addBuiltin(AggregateFunction.createBuiltin(FLAT_JSON_META, Lists.newArrayList(Type.JSON),
+                Type.ARRAY_VARCHAR, Type.ARRAY_VARCHAR, false, false, false));
 
         for (Type t : Type.getSupportedTypes()) {
             // null/char/time is handled through type promotion

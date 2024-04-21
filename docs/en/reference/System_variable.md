@@ -176,6 +176,67 @@ Specifies the data type used for data comparison between DECIMAL data and STRING
 * Default: 64
 * Introduced in: v3.1.9, v3.2.5
 
+### enable_sync_materialized_view_rewrite(3.1 and later)
+
+* Description: Whether to enable synchronized materialized view rewrite or not.
+* Default: true
+
+### query_including_mv_names(3.1 and later)
+
+* Description: Specifies the including mv names to be used for materialized view rewrite to reduce the related materialized view numbers and reduce the optimizer time for rewrite.
+* Default: empty
+
+### query_excluding_mv_names(3.1 and later)
+
+* Description: Specifies the excluding mv names to be used for materialized view rewrite to reduce the related materialized view numbers and reduce the optimizer time for rewrite.
+* Default: empty
+
+### optimizer_materialized_view_timelimit 
+
+* Description: Specifies the maximum time that one materialized view rewrite rule costs before exhausted
+* Default: 1000(ms)
+* Introduced in: v3.1.9, v3.2.5
+
+### enable_materialized_view_text_match_rewrite
+
+* Description: Whether to enable text based materialized view rewrite or not. If true, optimizer will compare query and created materialized views, it will be rewritten if the materialized view's define query ast tree is the same with the input query or its subquery.
+* Default: true
+* Introduced in: v3.2.5, v3.3.0
+
+### materialized_view_subuqery_text_match_max_count
+
+* Description: Specifies the maximum number of checking whether one query's subquery is matched with the defined materialized views.
+* Default: 4
+* Introduced in: v3.2.5, v3.3.0
+
+### enable_force_rule_based_mv_rewrite(3.3 and later)
+
+* Description: Whether to rewrite input query in optimizer's RBO phase even for queries with multi tables.
+* Default: true
+
+### enable_view_based_mv_rewrite(3.2 and later)
+
+* Description: Whether to enable view based rewrite or not. If true, treat logical view as unified node to rewrite rather than inlining it to be better for rewrite.
+* Default: false
+* Introduced in: v3.1.9, v3.2.5
+
+### enable_materialized_view_union_rewrite(2.5 and later)
+
+* Description: Whether to enable materialized view union rewrite or not. If true, try to use union all compensate when mateiralized view predicates cannot satisfy the query's predicates.
+* Default: true
+
+### follower_query_forward_mode(2.5 and later)
+
+* Description: Flag to control whether to proxy follower's query statement to leader/follower.
+
+Valid values:
+
+* `default`: proxy the query statement to leader/follower decided by the follower's replay progress.
+* `leader`: proxy the query statement to leader fe.
+* `follower`: not proxy the query statement to leader fe.
+
+* Default: `default`
+
 ### character_set_database (global)
 
 The character set supported by StarRocks. Only UTF8 (`utf8`) is supported.
@@ -190,7 +251,7 @@ Currently, StarRocks can adaptively adjust the number of concurrent I/O tasks wh
 
 Specifies the compression algorithm used for writing data into Hive tables or Iceberg tables, or exporting data with Files().
 
-Valid values: `gzip`, `brotli`, `zstd`, and `lz4`.
+Valid values: `uncompressed`, `snappy`, `lz4`, `zstd`, and `gzip`.
 
 ### count_distinct_column_buckets (2.5 and later)
 
@@ -753,3 +814,7 @@ The StarRocks version. Cannot be changed.
 The number of seconds the server waits for activity on a noninteractive connection before closing it. If a client does not interact with StarRocks for this length of time, StarRocks will actively close the connection.
 
 Unit: seconds. Default value: 28800 (8 hours).
+
+### orc_use_column_names
+
+Used to specify how columns are matched when StarRocks reads ORC files from Hive. The default value is `false`, which means columns in ORC files are read based on their ordinal positions in the Hive table definition. If this variable is set to `true`, columns are read based on their names. This variable is supported from v3.1.10 onwards.

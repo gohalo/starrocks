@@ -21,8 +21,11 @@ import com.starrocks.catalog.Database;
 import com.starrocks.common.MetaNotFoundException;
 import com.starrocks.connector.exception.StarRocksConnectorException;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.StarRocksIcebergTableScan;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
@@ -33,22 +36,46 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class CachingIcebergCatalog implements IcebergCatalog {
     private static final Logger LOG = LogManager.getLogger(CachingIcebergCatalog.class);
+    public static final long NEVER_CACHE = 0;
+    public static final long DEFAULT_CACHE_NUM = 100000;
+    private final String catalogName;
     private final IcebergCatalog delegate;
     private final Cache<IcebergTableName, Table> tables;
-    private final Map<String, Database> databases = new ConcurrentHashMap<>();
-    private final Map<IcebergTableName, List<String>> partitionNames = new ConcurrentHashMap<>();
+    private final Cache<IcebergTableName, List<String>> partitionNames;
+    private final Cache<String, Database> databases;
     private final ExecutorService backgroundExecutor;
 
-    public CachingIcebergCatalog(IcebergCatalog delegate, long ttlSec, ExecutorService executorService) {
+    private final IcebergCatalogProperties icebergProperties;
+    private final Cache<String, Set<DataFile>> dataFileCache;
+    private final Cache<String, Set<DeleteFile>> deleteFileCache;
+
+    public CachingIcebergCatalog(String catalogName, IcebergCatalog delegate, IcebergCatalogProperties icebergProperties,
+                                 ExecutorService executorService) {
+        this.catalogName = catalogName;
         this.delegate = delegate;
-        this.tables = CacheBuilder.newBuilder().expireAfterWrite(ttlSec, SECONDS).maximumSize(100000).build();
+        this.icebergProperties = icebergProperties;
+        boolean enableCache = icebergProperties.isEnableIcebergMetadataCache();
+        this.databases = newCacheBuilder(icebergProperties.getIcebergMetaCacheTtlSec(),
+                enableCache ? DEFAULT_CACHE_NUM : NEVER_CACHE).build();
+        this.tables = newCacheBuilder(icebergProperties.getIcebergTableCacheTtlSec(),
+                enableCache ? DEFAULT_CACHE_NUM : NEVER_CACHE).build();
+        this.partitionNames = newCacheBuilder(icebergProperties.getIcebergMetaCacheTtlSec(),
+                enableCache ? DEFAULT_CACHE_NUM : NEVER_CACHE).build();
+        this.dataFileCache = enableCache ?
+                newCacheBuilder(
+                        icebergProperties.getIcebergMetaCacheTtlSec(), icebergProperties.getIcebergManifestCacheMaxNum()).build()
+                : null;
+        this.deleteFileCache = enableCache ?
+                newCacheBuilder(
+                        icebergProperties.getIcebergMetaCacheTtlSec(), icebergProperties.getIcebergManifestCacheMaxNum()).build()
+                : null;
         this.backgroundExecutor = executorService;
     }
 
@@ -68,13 +95,13 @@ public class CachingIcebergCatalog implements IcebergCatalog {
 
     public void dropDb(String dbName) throws MetaNotFoundException {
         delegate.dropDb(dbName);
-        databases.remove(dbName);
+        databases.invalidate(dbName);
     }
 
     @Override
     public Database getDB(String dbName) {
-        if (databases.containsKey(dbName)) {
-            return databases.get(dbName);
+        if (databases.asMap().containsKey(dbName)) {
+            return databases.getIfPresent(dbName);
         }
         Database db = delegate.getDB(dbName);
         databases.put(dbName, db);
@@ -129,8 +156,8 @@ public class CachingIcebergCatalog implements IcebergCatalog {
     @Override
     public List<String> listPartitionNames(String dbName, String tableName, ExecutorService executorService) {
         IcebergTableName icebergTableName = new IcebergTableName(dbName, tableName);
-        if (partitionNames.containsKey(icebergTableName)) {
-            return partitionNames.get(icebergTableName);
+        if (partitionNames.asMap().containsKey(icebergTableName)) {
+            return partitionNames.getIfPresent(icebergTableName);
         } else {
             List<String> partitionNames = delegate.listPartitionNames(dbName, tableName, executorService);
             this.partitionNames.put(icebergTableName, partitionNames);
@@ -147,7 +174,7 @@ public class CachingIcebergCatalog implements IcebergCatalog {
     public synchronized void refreshTable(String dbName, String tableName, ExecutorService executorService) {
         IcebergTableName icebergTableName = new IcebergTableName(dbName, tableName);
         if (tables.getIfPresent(icebergTableName) == null) {
-            partitionNames.remove(icebergTableName);
+            partitionNames.invalidate(icebergTableName);
         } else {
             BaseTable currentTable = (BaseTable) getTable(dbName, tableName);
             BaseTable updateTable = (BaseTable) delegate.getTable(dbName, tableName);
@@ -196,13 +223,34 @@ public class CachingIcebergCatalog implements IcebergCatalog {
         }
     }
 
-    public void invalidateCacheWithoutTable(CachingIcebergCatalog.IcebergTableName icebergTableName) {
-        partitionNames.remove(icebergTableName);
+    public void invalidateCacheWithoutTable(IcebergTableName icebergTableName) {
+        partitionNames.invalidate(icebergTableName);
     }
 
-    public void invalidateCache(CachingIcebergCatalog.IcebergTableName icebergTableName) {
+    public void invalidateCache(IcebergTableName icebergTableName) {
         tables.invalidate(icebergTableName);
-        partitionNames.remove(icebergTableName);
+        partitionNames.invalidate(icebergTableName);
+    }
+
+    @Override
+    public StarRocksIcebergTableScan getTableScan(Table table, StarRocksIcebergTableScanContext scanContext) {
+        StarRocksIcebergTableScan scan = delegate.getTableScan(table, scanContext);
+
+        return scan
+                .dataFileCache(dataFileCache)
+                .deleteFileCache(deleteFileCache)
+                .dataFileCacheWithMetrics(icebergProperties.isIcebergManifestCacheWithColumnStatistics());
+    }
+
+
+    private CacheBuilder<Object, Object> newCacheBuilder(long expiresAfterWriteSec, long maximumSize) {
+        CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder();
+        if (expiresAfterWriteSec >= 0) {
+            cacheBuilder.expireAfterWrite(expiresAfterWriteSec, SECONDS);
+        }
+
+        cacheBuilder.maximumSize(maximumSize);
+        return cacheBuilder;
     }
 
     static class IcebergTableName {

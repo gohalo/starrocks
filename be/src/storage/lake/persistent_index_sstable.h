@@ -39,7 +39,8 @@ public:
     PersistentIndexSstable() = default;
     ~PersistentIndexSstable() = default;
 
-    Status init(std::unique_ptr<RandomAccessFile> rf, const PersistentIndexSstablePB& sstable_pb, Cache* cache);
+    Status init(std::unique_ptr<RandomAccessFile> rf, const PersistentIndexSstablePB& sstable_pb, Cache* cache,
+                bool need_filter = true);
 
     static Status build_sstable(const phmap::btree_map<std::string, std::list<IndexValueWithVer>, std::less<>>& map,
                                 WritableFile* wf, uint64_t* filesz);
@@ -54,6 +55,8 @@ public:
                      KeyIndexSet* found_key_indexes) const;
 
     sstable::Iterator* new_iterator(const sstable::ReadOptions& options) { return _sst->NewIterator(options); }
+
+    const PersistentIndexSstablePB& sstable_pb() const { return _sstable_pb; }
 
 private:
     std::unique_ptr<sstable::Table> _sst{nullptr};

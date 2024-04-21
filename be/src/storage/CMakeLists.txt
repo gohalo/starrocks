@@ -83,6 +83,7 @@ add_library(Storage STATIC
     rowset/column_iterator.cpp
     rowset/json_column_iterator.cpp
     rowset/json_column_writer.cpp
+    rowset/cast_column_iterator.cpp
     rowset/column_reader.cpp
     rowset/column_writer.cpp
     rowset/column_decoder.cpp
@@ -136,6 +137,7 @@ add_library(Storage STATIC
     column_or_predicate.cpp
     column_expr_predicate.cpp
     conjunctive_predicates.cpp
+    predicate_tree/predicate_tree.cpp
     convert_helper.cpp
     delete_predicates.cpp
     disjunctive_predicates.cpp

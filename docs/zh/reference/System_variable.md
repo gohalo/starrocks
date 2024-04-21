@@ -174,6 +174,73 @@ SELECT /*+ SET_VAR
 * 默认值：64
 * 引入版本：v3.1.9, v3.2.5
 
+### enable_sync_materialized_view_rewrite(3.1 and later)
+
+是否启用同步物化视图自动改写。
+
+默认值： true
+
+### query_including_mv_names(3.1 and later)
+
+指定用于物化视图自动改写包含的物化视图名称，以减少相关物化视图数量，并减少优化器用于重写的时间。
+
+默认值： empty
+
+
+### query_excluding_mv_names(3.1 and later)
+
+指定用于物化视图自动改写排除的物化视图名称，以减少相关物化视图数量，并减少优化器用于重写的时间。
+
+默认值： empty
+
+### optimizer_materialized_view_timelimit 
+
+在一个Query改写中，指定一个物化视图自动改写规则最大耗时时间，超过该时间后，不会再使用改规则进行自动改写。
+
+默认值： 1000(ms)
+
+### enable_materialized_view_text_match_rewrite
+
+是否启用基于文本的物化视图重写。如果设置为true，则优化器将比较查询和创建的物化视图，如果物化视图的定义查询AST树与输入查询或其子查询相同，则将进行重写。
+
+默认值： true
+
+### materialized_view_subuqery_text_match_max_count
+
+指定检查一个查询中，递归匹配子查询与定义的物化视图匹配的最大次数。
+
+默认值： 4
+
+### enable_force_rule_based_mv_rewrite(3.3 and later)
+
+在优化器的RBO阶段(rule based optimization)是否开启多表查询的输入查询: 开启后，可以让改写更加鲁棒，但如果不能命中也可能增加优化耗时。
+
+默认值： true
+
+### enable_view_based_mv_rewrite(3.2 and later)
+
+是否启用基于视图的重写。如果设置为true，则将逻辑视图视为统一节点进行重写，而不是内联它，以便更好地进行重写。
+
+默认值： false
+
+### enable_materialized_view_union_rewrite(2.5 and later)
+
+是否启用物化视图Union Rewrite： 如果设置为true，则在物化视图的谓词不能满足查询的谓词时，尝试使用UNION ALL进行补偿。
+
+默认值：true
+
+### follower_query_forward_mode(2.5 and later)
+
+用于控制将查询路由到FE Leader/Follower的标志
+
+有效值:
+
+* `default`: 将查询语句路由到Leader/Follower，由Follower的回放进度决定。
+* `leader`: 将查询语句路由到Leader。
+* `follower`: 将查询语句路由到Follower。
+
+默认值：`default`
+
 ### character_set_database（global）
 
 StarRocks 数据库支持的字符集，当前仅支持 UTF8 编码 （`utf8`）。
@@ -186,7 +253,7 @@ StarRocks 数据库支持的字符集，当前仅支持 UTF8 编码 （`utf8`）
 
 用于指定写入 Hive 表或 Iceberg 表时以及使用 Files() 导出数据时的压缩算法。
 
-有效值：`gzip`、`brotli`、`zstd` 和 `lz4`。
+有效值：`uncompressed`、`snappy`、`lz4`、`zstd`、`gzip`。
 
 ### count_distinct_column_buckets（2.5 及以后）
 
@@ -740,3 +807,7 @@ MySQL 服务器的版本。
 用于设置客户端与 StarRocks 数据库交互时的最大空闲时长。如果一个空闲连接在该时长内与 StarRocks 数据库没有任何交互，StarRocks 会主动断开这个连接。
 
 单位：秒。默认值：28800（即 8 小时）。
+
+### orc_use_column_names
+
+设置通过 Hive Catalog 读取 ORC 文件时，列的对应方式。默认值是 `false`，即按照 Hive 表中列的顺序对应。如果设置为 `true`，则按照列名称对应。该变量从 3.1.10 版本起支持。

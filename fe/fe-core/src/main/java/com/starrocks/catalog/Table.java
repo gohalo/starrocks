@@ -121,7 +121,10 @@ public class Table extends MetaObject implements Writable, GsonPostProcessable, 
         @SerializedName("ODPS")
         ODPS,
         @SerializedName("BLACKHOLE")
-        BLACKHOLE;
+        BLACKHOLE,
+
+        @SerializedName("METADATA")
+        METADATA;
 
         public static String serialize(TableType type) {
             if (type == CLOUD_NATIVE) {
@@ -384,6 +387,10 @@ public class Table extends MetaObject implements Writable, GsonPostProcessable, 
                 return partitionInfo instanceof ExpressionRangePartitionInfoV2;
             }
         }
+        return false;
+    }
+
+    public boolean isTemporaryTable() {
         return false;
     }
 

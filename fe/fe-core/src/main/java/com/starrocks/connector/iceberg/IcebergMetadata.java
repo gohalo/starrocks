@@ -556,7 +556,7 @@ public class IcebergMetadata implements ConnectorMetadata {
         ScalarOperatorToIcebergExpr.IcebergContext icebergContext = new ScalarOperatorToIcebergExpr.IcebergContext(schema);
         Expression icebergPredicate = new ScalarOperatorToIcebergExpr().convert(scalarOperators, icebergContext);
 
-        TableScan scan = nativeTbl.newScan()
+        TableScan scan = icebergCatalog.getTableScan(nativeTbl, new StarRocksIcebergTableScanContext())
                 .useSnapshot(snapshotId)
                 .metricsReporter(metricsReporter)
                 .planWith(jobPlanningExecutor);
@@ -642,7 +642,8 @@ public class IcebergMetadata implements ConnectorMetadata {
             // Ignored
         }
 
-        Optional<ScanReport> metrics = metricsReporter.getReporter(catalogName, dbName, tableName, snapshotId, icebergPredicate);
+        Optional<ScanReport> metrics = metricsReporter.getReporter(
+                catalogName, dbName, tableName, snapshotId, icebergPredicate, nativeTbl);
 
         if (metrics.isPresent()) {
             Tracers.Module module = Tracers.Module.EXTERNAL;

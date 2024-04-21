@@ -72,6 +72,8 @@ public:
 
     [[nodiscard]] Status put_txn_slog(const TxnLogPtr& log);
 
+    [[nodiscard]] Status put_combined_txn_log(const CombinedTxnLogPB& logs);
+
     StatusOr<TxnLogPtr> get_txn_log(int64_t txn_id);
 
     StatusOr<TxnLogPtr> get_txn_slog(int64_t txn_id);
@@ -89,7 +91,7 @@ public:
     // NOTE: This method may update the version hint
     StatusOr<std::shared_ptr<const TabletSchema>> get_schema();
 
-    StatusOr<std::shared_ptr<const TabletSchema>> get_schema_by_id(int64_t index_id);
+    StatusOr<std::shared_ptr<const TabletSchema>> get_schema_by_id(int64_t schema_id);
 
     StatusOr<std::vector<RowsetPtr>> get_rowsets(int64_t version);
 
